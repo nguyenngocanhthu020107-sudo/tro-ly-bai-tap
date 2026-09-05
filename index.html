@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trợ lý Gợi Ý Làm Bài</title>
+<style>
+:root{--p:#6546d8;--p2:#8b72ed;--bg:#f7f5ff;--card:#fff;--text:#1d2140;--muted:#70748c;--line:#e9e5fb;--good:#198754}
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:linear-gradient(180deg,#f1edff,#fbfbff 40%);color:var(--text)}
+.wrap{max-width:980px;margin:auto;padding:22px 16px 50px}.hero{background:linear-gradient(135deg,#6242d5,#8c70ec);color:white;border-radius:24px;padding:24px;box-shadow:0 14px 40px #6143d52a}.hero h1{margin:0 0 8px;font-size:29px}.hero p{margin:0;opacity:.92}.pill{display:inline-block;margin-top:14px;padding:7px 12px;background:#ffffff22;border:1px solid #ffffff38;border-radius:999px;font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px;margin-top:16px;box-shadow:0 8px 24px #3d2a7c0c}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.field label{display:block;font-weight:700;margin-bottom:7px;font-size:14px}.field select,.field textarea,.field input{width:100%;border:1px solid #ddd8f2;border-radius:13px;padding:12px;font:inherit;background:#fff;outline:none}.field textarea{min-height:145px;resize:vertical}.field select:focus,.field textarea:focus,.field input:focus{border-color:var(--p2);box-shadow:0 0 0 3px #8b72ed22}
+.modes{display:flex;gap:10px;flex-wrap:wrap}.mode{border:1px solid #ddd8f2;background:white;padding:11px 13px;border-radius:12px;cursor:pointer}.mode.active{background:#eeeaff;border-color:#8063e6;color:#4f35b7;font-weight:700}
+.choices{display:grid;gap:9px;margin-top:12px}.choice{display:flex;gap:8px;align-items:center}.choice input{flex:1}.btn{border:0;border-radius:13px;padding:13px 17px;background:var(--p);color:white;font-weight:800;cursor:pointer}.btn.secondary{background:#eeeaff;color:#4f35b7}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.result{white-space:pre-wrap;line-height:1.65;background:#faf9ff;border:1px solid var(--line);border-radius:15px;padding:16px;margin-top:14px}.hint{color:var(--muted);font-size:13px}.hidden{display:none}.loading{opacity:.65;pointer-events:none}
+.choiceBtns{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}.choiceBtn{padding:12px;border:1px solid #ddd8f2;background:#fff;border-radius:12px;font-weight:800;cursor:pointer}.choiceBtn.selected{background:#eeeaff;border-color:#6d4fe0;color:#4d32ba}
+@media(max-width:700px){.grid{grid-template-columns:1fr}.hero h1{font-size:24px}.choiceBtns{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="hero">
+    <h1 id="appName">Trợ lý Gợi Ý Làm Bài</h1>
+    <p>Học bằng cách hiểu — không chỉ chép đáp án.</p>
+    <span class="pill">Cấp 1 • Cấp 2 • Cấp 3</span>
+  </section>
+
+  <section class="card">
+    <div class="field">
+      <label>Chế độ</label>
+      <div class="modes">
+        <button class="mode active" data-mode="answer">① Hiện đáp án + giải thích</button>
+        <button class="mode" data-mode="explain-first">② Giải thích trước → chọn đáp án</button>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:16px">
+      <div class="field"><label>Cấp học</label><select id="level"><option>Cấp 1</option><option>Cấp 2</option><option>Cấp 3</option></select></div>
+      <div class="field"><label>Môn học</label><select id="subject"><option>Toán</option><option>Ngữ văn</option><option>Tiếng Anh</option><option>Vật lý</option><option>Hóa học</option><option>Sinh học</option><option>Lịch sử</option><option>Địa lý</option><option>Tin học</option><option>Khác</option></select></div>
+    </div>
+
+    <div class="field" style="margin-top:16px">
+      <label>Câu hỏi</label>
+      <textarea id="question" placeholder="Dán đề bài vào đây..."></textarea>
+    </div>
+
+    <div class="field" style="margin-top:16px">
+      <label>Đáp án lựa chọn (nếu là trắc nghiệm)</label>
+      <div class="choices">
+        <div class="choice"><b>A</b><input id="c0" placeholder="Phương án A"></div>
+        <div class="choice"><b>B</b><input id="c1" placeholder="Phương án B"></div>
+        <div class="choice"><b>C</b><input id="c2" placeholder="Phương án C"></div>
+        <div class="choice"><b>D</b><input id="c3" placeholder="Phương án D"></div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="solve">✨ Gợi ý làm bài</button>
+      <button class="btn secondary" id="clear">Xóa</button>
+    </div>
+  </section>
+
+  <section class="card hidden" id="answerCard">
+    <b>🤖 Trợ lý</b>
+    <div class="result" id="result"></div>
+    <div id="pickArea" class="hidden">
+      <p><b>Chọn đáp án của bạn:</b></p>
+      <div class="choiceBtns">
+        <button class="choiceBtn" data-choice="A">A</button>
+        <button class="choiceBtn" data-choice="B">B</button>
+        <button class="choiceBtn" data-choice="C">C</button>
+        <button class="choiceBtn" data-choice="D">D</button>
+      </div>
+      <button class="btn" id="check" style="margin-top:12px">Kiểm tra đáp án</button>
+    </div>
+  </section>
+</div>
+
+<script>
+let mode="answer", selected="";
+const $=id=>document.getElementById(id);
+document.querySelectorAll(".mode").forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll(".mode").forEach(x=>x.classList.remove("active"));
+    btn.classList.add("active"); mode=btn.dataset.mode;
+  };
+});
+document.querySelectorAll(".choiceBtn").forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll(".choiceBtn").forEach(x=>x.classList.remove("selected"));
+    btn.classList.add("selected"); selected=btn.dataset.choice;
+  };
+});
+$("clear").onclick=()=>{
+  $("question").value=""; ["c0","c1","c2","c3"].forEach(id=>$(id).value="");
+  $("answerCard").classList.add("hidden"); selected="";
+};
+function payload(){
+  return {
+    mode,
+    level:$("level").value,
+    subject:$("subject").value,
+    question:$("question").value,
+    choices:["c0","c1","c2","c3"].map(id=>$(id).value).filter(x=>x.trim())
+  };
+}
+$("solve").onclick=async()=>{
+  if(!$("question").value.trim()) return alert("Bạn hãy nhập câu hỏi trước.");
+  const btn=$("solve"); btn.classList.add("loading"); btn.textContent="Đang suy nghĩ...";
+  try{
+    const r=await fetch("/api/solve",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload())});
+    const data=await r.json();
+    if(!r.ok) throw new Error(data.error||"Có lỗi xảy ra.");
+    $("answerCard").classList.remove("hidden");
+    $("result").textContent=data.answer;
+    $("pickArea").classList.toggle("hidden", mode!=="explain-first");
+    $("answerCard").scrollIntoView({behavior:"smooth"});
+  }catch(e){alert(e.message)}
+  finally{btn.classList.remove("loading");btn.textContent="✨ Gợi ý làm bài";}
+};
+$("check").onclick=async()=>{
+  if(!selected) return alert("Hãy chọn A, B, C hoặc D.");
+  const body={...payload(),studentAnswer:selected};
+  try{
+    const r=await fetch("/api/check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const data=await r.json();
+    if(!r.ok) throw new Error(data.error||"Có lỗi xảy ra.");
+    $("result").textContent=data.answer;
+  }catch(e){alert(e.message)}
+};
+fetch("/api/config").then(r=>r.json()).then(c=>{
+  if(c.appName) $("appName").textContent=c.appName;
+}).catch(()=>{});
+</script>
+</body>
+</html>

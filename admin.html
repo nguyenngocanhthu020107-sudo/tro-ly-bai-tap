@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quản trị — Trợ lý Gợi Ý Làm Bài</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial;background:#f7f5ff;color:#202342}.wrap{max-width:900px;margin:auto;padding:20px 14px 50px}.card{background:white;border:1px solid #e5e0f7;border-radius:18px;padding:18px;margin:14px 0;box-shadow:0 8px 25px #39237b0b}h1{margin:5px 0 8px;color:#593bd0}input{width:100%;padding:12px;border:1px solid #ddd8ef;border-radius:11px;font:inherit}.btn{padding:11px 14px;border:0;border-radius:11px;background:#6546d8;color:#fff;font-weight:700;cursor:pointer}.btn.gray{background:#eeeaff;color:#4e36b5}.btn.red{background:#ffe7e7;color:#b42318}.row{display:flex;gap:9px;flex-wrap:wrap;margin-top:10px}.key{border:1px solid #e8e3f7;border-radius:14px;padding:13px;margin-top:10px}.muted{color:#777b91;font-size:13px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:650px){.grid{grid-template-columns:1fr}}
+.hidden{display:none}.ok{color:#198754}.bad{color:#b42318}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>⚙️ Quản trị</h1>
+<div id="login" class="card">
+  <h3>Đăng nhập</h3>
+  <input id="pw" type="password" placeholder="Mật khẩu admin">
+  <div class="row"><button class="btn" onclick="login()">Đăng nhập</button></div>
+  <p class="muted">Mật khẩu lấy từ biến ADMIN_PASSWORD trên server.</p>
+</div>
+
+<div id="panel" class="hidden">
+  <div class="card">
+    <h3>Thông tin website</h3>
+    <div class="grid">
+      <input id="appName" placeholder="Tên website">
+      <input id="slug" placeholder="slug">
+    </div>
+    <div class="row"><button class="btn" onclick="saveSettings()">Lưu</button><button class="btn gray" onclick="logout()">Đăng xuất</button></div>
+    <p class="muted" id="share"></p>
+  </div>
+
+  <div class="card">
+    <h3>➕ Thêm API key</h3>
+    <input id="label" placeholder="Tên key, ví dụ: Key chính">
+    <div style="height:8px"></div>
+    <input id="key" type="password" placeholder="sk-...">
+    <div class="row"><button class="btn" onclick="addKey()">Thêm key</button></div>
+    <p class="muted">Key được mã hóa trước khi lưu. Không hiển thị key đầy đủ.</p>
+  </div>
+
+  <div class="card">
+    <h3>🔑 API keys</h3>
+    <div id="keys"></div>
+  </div>
+
+  <div class="card">
+    <h3>📊 Thống kê</h3>
+    <div id="stats"></div>
+  </div>
+</div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+async function api(url,opt={}){
+  const r=await fetch(url,{...opt,headers:{"Content-Type":"application/json",...(opt.headers||{})}});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error||"Có lỗi");
+  return d;
+}
+async function login(){
+  try{await api("/api/login",{method:"POST",body:JSON.stringify({password:$("pw").value})}); showPanel();}
+  catch(e){alert(e.message)}
+}
+async function showPanel(){
+  $("login").classList.add("hidden"); $("panel").classList.remove("hidden"); await load();
+}
+async function load(){
+  try{
+    const d=await api("/api/admin/state");
+    $("appName").value=d.settings.appName; $("slug").value=d.settings.slug;
+    $("share").textContent=location.origin+"/s/"+d.settings.slug;
+    $("stats").innerHTML=`Tổng: <b>${d.stats.totalRequests}</b> · Thành công: <b class="ok">${d.stats.successfulRequests}</b> · Lỗi: <b class="bad">${d.stats.failedRequests}</b>`;
+    $("keys").innerHTML=d.keys.length?d.keys.map(k=>`
+      <div class="key">
+        <b>${esc(k.label)}</b> ${k.enabled?'<span class="ok">● đang bật</span>':'<span class="bad">● đang tắt</span>'}
+        <div class="muted">${esc(k.preview)} · dùng ${k.uses||0} · lỗi ${k.errors||0}</div>
+        ${k.lastError?`<div class="bad" style="margin-top:5px">${esc(k.lastError)}</div>`:""}
+        <div class="row">
+          <button class="btn gray" onclick="toggleKey('${k.id}')">${k.enabled?"Tắt":"Bật"}</button>
+          <button class="btn gray" onclick="testKey('${k.id}')">Test</button>
+          <button class="btn red" onclick="deleteKey('${k.id}')">Xóa</button>
+        </div>
+      </div>`).join(""):"<p class='muted'>Chưa có key admin. Có thể dùng OPENAI_API_KEY trên Environment Variables.</p>";
+  }catch(e){
+    $("login").classList.remove("hidden"); $("panel").classList.add("hidden");
+  }
+}
+function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+async function addKey(){
+  try{await api("/api/admin/keys",{method:"POST",body:JSON.stringify({label:$("label").value,key:$("key").value})});$("label").value="";$("key").value="";await load();alert("Đã thêm key.");}
+  catch(e){alert(e.message)}
+}
+async function toggleKey(id){try{await api("/api/admin/keys/"+id+"/toggle",{method:"POST"});await load()}catch(e){alert(e.message)}}
+async function testKey(id){try{const d=await api("/api/admin/keys/"+id+"/test",{method:"POST"});alert("Test thành công: "+d.result);await load()}catch(e){alert("Test thất bại: "+e.message);await load()}}
+async function deleteKey(id){if(!confirm("Xóa API key này?"))return;try{await api("/api/admin/keys/"+id,{method:"DELETE"});await load()}catch(e){alert(e.message)}}
+async function saveSettings(){
+  try{await api("/api/admin/settings",{method:"POST",body:JSON.stringify({appName:$("appName").value,slug:$("slug").value})});await load();alert("Đã lưu.");}
+  catch(e){alert(e.message)}
+}
+async function logout(){await api("/api/logout",{method:"POST"});location.reload()}
+api("/api/admin/state").then(showPanel).catch(()=>{});
+</script>
+</body>
+</html>
